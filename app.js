@@ -54,6 +54,64 @@ app.get('/produtos', async (req, res) => {
     }
 });
 
+// Rota para a página de edição de produto
+app.get('/editar/:id', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('produtos')
+            .select('*')
+            .eq('id', req.params.id)
+            .single();
+        
+        if (error) throw error;
+        res.render('editar', { produto: data });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Rota para atualizar a quantidade do produto
+app.post('/atualizar-quantidade/:id', async (req, res) => {
+    const { quantidade, operacao } = req.body;
+    const id = req.params.id;
+
+    try {
+        // Primeiro, obtém a quantidade atual
+        const { data: produto, error: selectError } = await supabase
+            .from('produtos')
+            .select('quantidade')
+            .eq('id', id)
+            .single();
+
+        if (selectError) throw selectError;
+
+        // Calcula a nova quantidade
+        let novaQuantidade;
+        if (operacao === 'adicionar') {
+            novaQuantidade = produto.quantidade + parseInt(quantidade);
+        } else if (operacao === 'subtrair') {
+            novaQuantidade = produto.quantidade - parseInt(quantidade);
+            if (novaQuantidade < 0) {
+                return res.status(400).json({ error: 'Quantidade insuficiente em estoque' });
+            }
+        } else {
+            novaQuantidade = parseInt(quantidade); // Definir valor específico
+        }
+
+        // Atualiza o produto com a nova quantidade
+        const { error: updateError } = await supabase
+            .from('produtos')
+            .update({ quantidade: novaQuantidade })
+            .eq('id', id);
+
+        if (updateError) throw updateError;
+
+        res.redirect('/produtos');
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.listen(port, () => {
     console.log(`Servidor rodando na porta ${port}`);
 });
